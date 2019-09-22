@@ -100,9 +100,11 @@ func (m *MapMarker) GetJson() string {
 }
 
 func supplyRideCallback(clt *sxutil.SMServiceClient, sp *api.Supply) {
-	var flt fleet.Fleet
-	err := proto.Unmarshal(sp.Cdata.Entity, &flt)
-	if err != nil {
+	flt := &fleet.Fleet{}
+//	dt := sp.Cdata.Entity
+//	fmt.Printf("Got data %d: %v",len(dt), dt)
+	err := proto.Unmarshal(sp.Cdata.Entity, flt)
+	if err == nil {
 		mm := &MapMarker{
 			mtype: int32(0),
 			id:    flt.VehicleId,
@@ -114,6 +116,8 @@ func supplyRideCallback(clt *sxutil.SMServiceClient, sp *api.Supply) {
 		mu.Lock()
 		ioserv.BroadcastToAll("event", mm.GetJson())
 		mu.Unlock()
+	}else{ // err
+		log.Printf("Err UnMarshal %v", err)
 	}
 }
 
