@@ -23,13 +23,13 @@ import (
 // map provider provides map information to Web Service through socket.io.
 
 var (
-	serverAddr = flag.String("server_addr", "127.0.0.1:10000", "The server address in the format of host:port")
 	nodesrv    = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
 	port       = flag.Int("port", 10080, "Map Provider Listening Port")
 	mu         sync.Mutex
 	version    = "0.01"
 	assetsDir  http.FileSystem
 	ioserv     *gosocketio.Server
+	sxServerAddress string
 )
 
 // assetsFileHandler for static Data
@@ -122,11 +122,22 @@ func supplyRideCallback(clt *sxutil.SMServiceClient, sp *api.Supply) {
 }
 
 func subscribeRideSupply(client *sxutil.SMServiceClient) {
-	ctx := context.Background() //
-	err := client.SubscribeSupply(ctx, supplyRideCallback)
-	log.Printf("Error:Supply %s\n",err.Error())
+	for {
+		ctx := context.Background() //
+		err := client.SubscribeSupply(ctx, supplyRideCallback)
+		log.Printf("Error:Supply %s\n", err.Error())
+		// we need to restart
+
+		time.Sleep(5*time.Second) // wait 5 seconds to reconnect
+		newClt := grpcConnectServer(sxServerAddress)
+		if newClt != nil {
+			log.Printf("Reconnect server [%s]\n", sxServerAddress)
+			client.Client = newClt
+		}
+	}
 }
 
+// just for stat debug
 func monitorStatus(){
 	for{
 		sxutil.SetNodeStatus(int32(runtime.NumGoroutine()),"MapGoroute")
@@ -134,28 +145,39 @@ func monitorStatus(){
 	}
 }
 
+func grpcConnectServer(serverAddress string) api.SynerexClient{
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	conn, err := grpc.Dial(serverAddress, opts...)
+	if err != nil {
+		log.Printf("fail to connect server [%s]: %v",serverAddress, err)
+		return nil
+	}
+	return api.NewSynerexClient(conn)
+}
+
+
 func main() {
 	flag.Parse()
-	sxutil.RegisterNodeName(*nodesrv, "MapProvider", false)
-
 	go sxutil.HandleSigInt()
 	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
 
-	var opts []grpc.DialOption
-	wg := sync.WaitGroup{} // for syncing other goroutines
-
-	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(*serverAddr, opts...)
-	if err != nil {
-		log.Fatalf("Fail to Connect Synerex Server: %v", err)
+	channelTypes := []uint32{pbase.RIDE_SHARE}
+	srv , rerr := sxutil.RegisterNode(*nodesrv, "MapProvider", channelTypes, nil)
+	if rerr != nil {
+		log.Fatal("Can't register node ", rerr)
 	}
+	log.Printf("Connecting SynerexServer at [%s]\n",srv)
+	wg := sync.WaitGroup{} // for syncing other goroutines
 	ioserv = run_server()
 	fmt.Printf("Running Map Server..\n")
 	if ioserv == nil {
+		fmt.Printf("Can't run websocket server.\n")
 		os.Exit(1)
 	}
 
-	client := api.NewSynerexClient(conn)
+	client := grpcConnectServer(srv)
+	sxServerAddress = srv
 	argJson := fmt.Sprintf("{Client:Map:RIDE}")
 	ride_client := sxutil.NewSMServiceClient(client, pbase.RIDE_SHARE, argJson)
 
@@ -170,7 +192,7 @@ func main() {
 	serveMux.HandleFunc("/", assetsFileHandler)
 
 	log.Printf("Starting Map Provider %s  on port %d", version, *port)
-	err = http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", *port), serveMux)
+	err := http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", *port), serveMux)
 	if err != nil {
 		log.Fatal(err)
 	}
