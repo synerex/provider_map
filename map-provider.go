@@ -10,7 +10,6 @@ import (
 	api "github.com/synerex/synerex_api"
 	pbase "github.com/synerex/synerex_proto"
 	sxutil "github.com/synerex/synerex_sxutil"
-	"google.golang.org/grpc"
 	"log"
 	"net/http"
 	"os"
@@ -99,7 +98,7 @@ func (m *MapMarker) GetJson() string {
 	return s
 }
 
-func supplyRideCallback(clt *sxutil.SMServiceClient, sp *api.Supply) {
+func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	flt := &fleet.Fleet{}
 //	dt := sp.Cdata.Entity
 //	fmt.Printf("Got data %d: %v",len(dt), dt)
@@ -121,7 +120,7 @@ func supplyRideCallback(clt *sxutil.SMServiceClient, sp *api.Supply) {
 	}
 }
 
-func subscribeRideSupply(client *sxutil.SMServiceClient) {
+func subscribeRideSupply(client *sxutil.SXServiceClient) {
 	for {
 		ctx := context.Background() //
 		err := client.SubscribeSupply(ctx, supplyRideCallback)
@@ -129,7 +128,7 @@ func subscribeRideSupply(client *sxutil.SMServiceClient) {
 		// we need to restart
 
 		time.Sleep(5*time.Second) // wait 5 seconds to reconnect
-		newClt := grpcConnectServer(sxServerAddress)
+		newClt := sxutil.GrpcConnectServer(sxServerAddress)
 		if newClt != nil {
 			log.Printf("Reconnect server [%s]\n", sxServerAddress)
 			client.Client = newClt
@@ -144,18 +143,6 @@ func monitorStatus(){
 		time.Sleep(time.Second * 3)
 	}
 }
-
-func grpcConnectServer(serverAddress string) api.SynerexClient{
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(serverAddress, opts...)
-	if err != nil {
-		log.Printf("fail to connect server [%s]: %v",serverAddress, err)
-		return nil
-	}
-	return api.NewSynerexClient(conn)
-}
-
 
 func main() {
 	flag.Parse()
@@ -176,13 +163,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	client := grpcConnectServer(srv)
+	client := sxutil.GrpcConnectServer(srv)
 	sxServerAddress = srv
 	argJson := fmt.Sprintf("{Client:Map:RIDE}")
-	ride_client := sxutil.NewSMServiceClient(client, pbase.RIDE_SHARE, argJson)
+	rideClient := sxutil.NewSXServiceClient(client, pbase.RIDE_SHARE, argJson)
 
 	wg.Add(1)
-	go subscribeRideSupply(ride_client)
+	go subscribeRideSupply(rideClient)
 
 	go monitorStatus() // keep status
 
