@@ -144,13 +144,9 @@ func monitorStatus(){
 	}
 }
 
-func main() {
-	flag.Parse()
-	go sxutil.HandleSigInt()
-	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
-
+func providerInit() {
 	channelTypes := []uint32{pbase.RIDE_SHARE}
-	srv , rerr := sxutil.RegisterNode(*nodesrv, "MapProvider", channelTypes, nil)
+	srv , rerr := sxutil.RegisterNodeAndProc(*nodesrv, "MapProvider", channelTypes, nil, providerInit)
 	if rerr != nil {
 		log.Fatal("Can't register node ", rerr)
 	}
@@ -186,5 +182,13 @@ func main() {
 
 	wg.Wait()
 
+}
+
+func main() {
+	flag.Parse()
+	go sxutil.HandleSigInt()
+	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
+
+	providerInit()
 }
 
