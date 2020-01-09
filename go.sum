@@ -108,6 +108,8 @@ github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJy
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/synerex/proto_fleet v0.0.1 h1:VDKykx2ZVNfugeCgbLEY03++ppH3sUKkHDxvTJt3s1I=
 github.com/synerex/proto_fleet v0.0.1/go.mod h1:6lJTskwTm6qgdtOADGI1bZRv6Ng0oW0smmunlFKznmo=
+github.com/synerex/proto_ptransit v0.0.6 h1:AXf989TySshDONrcbXtCPeLCpFibBE682N+Dn0rV29Y=
+github.com/synerex/proto_ptransit v0.0.6/go.mod h1:EgjlFdfkpebE84scfCi/DX3klMl62ZAQ6tod1NLenko=
 github.com/synerex/synerex_api v0.1.1/go.mod h1:sVqiujIdRBLEtKGw4pKjNK3SPgK0ymTlLWL8Drf266A=
 github.com/synerex/synerex_api v0.2.1 h1:2OTBiOBUjCYtjO4KzTPq1szU4oJDCgKVovcG1a/4TTw=
 github.com/synerex/synerex_api v0.2.1/go.mod h1:sVqiujIdRBLEtKGw4pKjNK3SPgK0ymTlLWL8Drf266A=

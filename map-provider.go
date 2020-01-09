@@ -7,6 +7,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/mtfelian/golang-socketio"
 	fleet "github.com/synerex/proto_fleet"
+	pt "github.com/synerex/proto_ptransit"		
 	api "github.com/synerex/synerex_api"
 	pbase "github.com/synerex/synerex_proto"
 	sxutil "github.com/synerex/synerex_sxutil"
@@ -136,6 +137,34 @@ func subscribeRideSupply(client *sxutil.SXServiceClient) {
 	}
 }
 
+func supplyPTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
+	pt := &pt.PTService{}
+	err := proto.Unmarshal(sp.Cdata.Entity, pt)	
+
+	if err == nil { // get PT
+		mm := &MapMarker{
+			mtype: pt.VehicleType, // depends on type of GTFS: 1 for Subway, 2, for Rail, 3 for bus
+			id:    pt.VehicleId,
+			lat:   float32(pt.Lat),
+			lon:   float32(pt.Lon),
+			angle: pt.Angle,
+			speed: pt.Speed,
+		}
+		mu.Lock()
+		if mm.lat > 10 {
+			ioserv.BroadcastToAll("event", mm.GetJson())				
+		}
+		mu.Unlock()
+	}
+}
+
+func subscribePTSupply(client *sxutil.SXServiceClient) {
+	ctx := context.Background() //
+	err := client.SubscribeSupply(ctx, supplyPTCallback)
+	log.Printf("Error:Supply %s\n",err.Error())
+}
+
+
 // just for stat debug
 func monitorStatus(){
 	for{
@@ -165,11 +194,19 @@ func main() {
 
 	client := sxutil.GrpcConnectServer(srv)
 	sxServerAddress = srv
-	argJson := fmt.Sprintf("{Client:Map:RIDE}")
-	rideClient := sxutil.NewSXServiceClient(client, pbase.RIDE_SHARE, argJson)
+	argJSON := fmt.Sprintf("{Client:Map:RIDE}")
+	rideClient := sxutil.NewSXServiceClient(client, pbase.RIDE_SHARE, argJSON)
+
+
+	argJSON2 := fmt.Sprintf("{Client:Map:PT}")
+	pt_client := sxutil.NewSXServiceClient(client, pbase.PT_SERVICE, argJSON2)
 
 	wg.Add(1)
 	go subscribeRideSupply(rideClient)
+
+	wg.Add(1)
+	go subscribePTSupply(pt_client)
+
 
 	go monitorStatus() // keep status
 
