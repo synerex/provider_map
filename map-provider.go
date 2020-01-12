@@ -4,13 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/mtfelian/golang-socketio"
-	fleet "github.com/synerex/proto_fleet"
-	pt "github.com/synerex/proto_ptransit"		
-	api "github.com/synerex/synerex_api"
-	pbase "github.com/synerex/synerex_proto"
-	sxutil "github.com/synerex/synerex_sxutil"
 	"log"
 	"net/http"
 	"os"
@@ -18,17 +11,25 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/proto"
+	gosocketio "github.com/mtfelian/golang-socketio"
+	fleet "github.com/synerex/proto_fleet"
+	pt "github.com/synerex/proto_ptransit"
+	api "github.com/synerex/synerex_api"
+	pbase "github.com/synerex/synerex_proto"
+	sxutil "github.com/synerex/synerex_sxutil"
 )
 
 // map provider provides map information to Web Service through socket.io.
 
 var (
-	nodesrv    = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
-	port       = flag.Int("port", 10080, "Map Provider Listening Port")
-	mu         sync.Mutex
-	version    = "0.01"
-	assetsDir  http.FileSystem
-	ioserv     *gosocketio.Server
+	nodesrv         = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
+	port            = flag.Int("port", 10080, "Map Provider Listening Port")
+	mu              sync.Mutex
+	version         = "0.01"
+	assetsDir       http.FileSystem
+	ioserv          *gosocketio.Server
 	sxServerAddress string
 )
 
@@ -101,8 +102,8 @@ func (m *MapMarker) GetJson() string {
 
 func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	flt := &fleet.Fleet{}
-//	dt := sp.Cdata.Entity
-//	fmt.Printf("Got data %d: %v",len(dt), dt)
+	//	dt := sp.Cdata.Entity
+	//	fmt.Printf("Got data %d: %v",len(dt), dt)
 	err := proto.Unmarshal(sp.Cdata.Entity, flt)
 	if err == nil {
 		mm := &MapMarker{
@@ -116,7 +117,7 @@ func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		mu.Lock()
 		ioserv.BroadcastToAll("event", mm.GetJson())
 		mu.Unlock()
-	}else{ // err
+	} else { // err
 		log.Printf("Err UnMarshal %v", err)
 	}
 }
@@ -128,7 +129,7 @@ func subscribeRideSupply(client *sxutil.SXServiceClient) {
 		log.Printf("Error:Supply %s\n", err.Error())
 		// we need to restart
 
-		time.Sleep(5*time.Second) // wait 5 seconds to reconnect
+		time.Sleep(5 * time.Second) // wait 5 seconds to reconnect
 		newClt := sxutil.GrpcConnectServer(sxServerAddress)
 		if newClt != nil {
 			log.Printf("Reconnect server [%s]\n", sxServerAddress)
@@ -139,9 +140,11 @@ func subscribeRideSupply(client *sxutil.SXServiceClient) {
 
 func supplyPTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	pt := &pt.PTService{}
-	err := proto.Unmarshal(sp.Cdata.Entity, pt)	
+	err := proto.Unmarshal(sp.Cdata.Entity, pt)
 
 	if err == nil { // get PT
+		//		fmt.Printf("Receive PT: %#v", *pt)
+
 		mm := &MapMarker{
 			mtype: pt.VehicleType, // depends on type of GTFS: 1 for Subway, 2, for Rail, 3 for bus
 			id:    pt.VehicleId,
@@ -152,7 +155,7 @@ func supplyPTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		}
 		mu.Lock()
 		if mm.lat > 10 {
-			ioserv.BroadcastToAll("event", mm.GetJson())				
+			ioserv.BroadcastToAll("event", mm.GetJson())
 		}
 		mu.Unlock()
 	}
@@ -161,14 +164,13 @@ func supplyPTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 func subscribePTSupply(client *sxutil.SXServiceClient) {
 	ctx := context.Background() //
 	err := client.SubscribeSupply(ctx, supplyPTCallback)
-	log.Printf("Error:Supply %s\n",err.Error())
+	log.Printf("Error:Supply %s\n", err.Error())
 }
 
-
 // just for stat debug
-func monitorStatus(){
-	for{
-		sxutil.SetNodeStatus(int32(runtime.NumGoroutine()),"MapGoroute")
+func monitorStatus() {
+	for {
+		sxutil.SetNodeStatus(int32(runtime.NumGoroutine()), "MapGoroute")
 		time.Sleep(time.Second * 3)
 	}
 }
@@ -179,11 +181,11 @@ func main() {
 	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
 
 	channelTypes := []uint32{pbase.RIDE_SHARE}
-	srv , rerr := sxutil.RegisterNode(*nodesrv, "MapProvider", channelTypes, nil)
+	srv, rerr := sxutil.RegisterNode(*nodesrv, "MapProvider", channelTypes, nil)
 	if rerr != nil {
 		log.Fatal("Can't register node ", rerr)
 	}
-	log.Printf("Connecting SynerexServer at [%s]\n",srv)
+	log.Printf("Connecting SynerexServer at [%s]\n", srv)
 	wg := sync.WaitGroup{} // for syncing other goroutines
 	ioserv = run_server()
 	fmt.Printf("Running Map Server..\n")
@@ -197,7 +199,6 @@ func main() {
 	argJSON := fmt.Sprintf("{Client:Map:RIDE}")
 	rideClient := sxutil.NewSXServiceClient(client, pbase.RIDE_SHARE, argJSON)
 
-
 	argJSON2 := fmt.Sprintf("{Client:Map:PT}")
 	pt_client := sxutil.NewSXServiceClient(client, pbase.PT_SERVICE, argJSON2)
 
@@ -206,7 +207,6 @@ func main() {
 
 	wg.Add(1)
 	go subscribePTSupply(pt_client)
-
 
 	go monitorStatus() // keep status
 
@@ -224,4 +224,3 @@ func main() {
 	wg.Wait()
 
 }
-
