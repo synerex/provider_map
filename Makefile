@@ -17,7 +17,7 @@ TARGET=map-provider
 build: $(TARGET)
 
 $(TARGET): $(TARGET).go
-	$(GOBUILD)  -ldflags $(LDFLAGS)
+	$(GOBUILD) -ldflags $(LDFLAGS)
 
 .PHONY: clean
 clean: 

@@ -176,7 +176,8 @@ func monitorStatus() {
 }
 
 func main() {
-	log.Printf("map-provider(%s) built %s sha1 %s", sxutil.GitVer, sxutil.BuildTime, sxutil.Sha1Ver)	
+	log.Printf("MapProvider(%s) built %s sha1 %s", sxutil.GitVer, sxutil.BuildTime, sxutil.Sha1Ver)
+
 	flag.Parse()
 
 	
