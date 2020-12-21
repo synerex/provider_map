@@ -26,6 +26,7 @@ import (
 var (
 	nodesrv         = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
 	port            = flag.Int("port", 10080, "Map Provider Listening Port")
+	localsx         = flag.Bool("localsxsrv", false, "using local synerex server")
 	mu              sync.Mutex
 	version         = "0.01"
 	assetsDir       http.FileSystem
@@ -133,7 +134,7 @@ func subscribeRideSupply(client *sxutil.SXServiceClient) {
 		newClt := sxutil.GrpcConnectServer(sxServerAddress)
 		if newClt != nil {
 			log.Printf("Reconnect server [%s]\n", sxServerAddress)
-			client.Client = newClt
+			client.SXClient = newClt
 		}
 	}
 }
@@ -180,12 +181,16 @@ func main() {
 
 	flag.Parse()
 
-	
 	go sxutil.HandleSigInt()
 	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
 
 	channelTypes := []uint32{pbase.RIDE_SHARE}
 	srv, rerr := sxutil.RegisterNode(*nodesrv, "MapProvider", channelTypes, nil)
+
+	if *localsx { // for AWS local network
+		srv = "127.0.0.1:10000"
+	}
+
 	if rerr != nil {
 		log.Fatal("Can't register node ", rerr)
 	}
