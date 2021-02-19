@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	gosocketio "github.com/mtfelian/golang-socketio"
+	//	gosocketio "github.com/mtfelian/golang-socketio"  obsolute?
+	socketio "github.com/googollee/go-socket.io"
+
 	fleet "github.com/synerex/proto_fleet"
 	pt "github.com/synerex/proto_ptransit"
 	api "github.com/synerex/synerex_api"
@@ -28,9 +30,9 @@ var (
 	port            = flag.Int("port", 10080, "Map Provider Listening Port")
 	localsx         = flag.Bool("localsxsrv", false, "using local synerex server")
 	mu              sync.Mutex
-	version         = "0.01"
+	version         = "0.02"
 	assetsDir       http.FileSystem
-	ioserv          *gosocketio.Server
+	ioserv          *socketio.Server
 	sxServerAddress string
 )
 
@@ -60,7 +62,7 @@ func assetsFileHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, file, fi.ModTime(), f)
 }
 
-func run_server() *gosocketio.Server {
+func run_server() *socketio.Server {
 
 	currentRoot, err := os.Getwd()
 	if err != nil {
@@ -72,15 +74,20 @@ func run_server() *gosocketio.Server {
 	log.Println("AssetDir:", assetsDir)
 
 	assetsDir = http.Dir(d)
-	server := gosocketio.NewServer()
+	server, serr := socketio.NewServer(nil)
+	if serr != nil {
+		log.Print("Socket IO open error:", serr)
+	}
 
-	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
-		log.Printf("Connected from %s as %s", c.IP(), c.Id())
-		// do something.
+	server.OnConnect("/", func(s socketio.Conn) error {
+		resp := server.JoinRoom("/", "#", s)
+		log.Printf("Connected ID: %s from %v with URL:%s  %b", s.ID(), s.RemoteAddr(), s.URL(), resp)
+		return nil
 	})
 
-	server.On(gosocketio.OnDisconnection, func(c *gosocketio.Channel) {
-		log.Printf("Disconnected from %s as %s", c.IP(), c.Id())
+	server.OnDisconnect("/", func(s socketio.Conn, reason string) {
+		resp := server.LeaveRoom("/", "#", s)
+		log.Printf("Disconnected ID:%s from %v leave:%b reason:%s", s.ID(), s.RemoteAddr(), resp, reason)
 	})
 
 	return server
@@ -116,7 +123,7 @@ func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 			speed: flt.Speed,
 		}
 		mu.Lock()
-		ioserv.BroadcastToAll("event", mm.GetJson())
+		ioserv.BroadcastToRoom("/", "#", "event", mm.GetJson())
 		mu.Unlock()
 	} else { // err
 		log.Printf("Err UnMarshal %v", err)
@@ -156,7 +163,7 @@ func supplyPTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		}
 		mu.Lock()
 		if mm.lat > 10 {
-			ioserv.BroadcastToAll("event", mm.GetJson())
+			ioserv.BroadcastToRoom("/", "#", "event", mm.GetJson())
 		}
 		mu.Unlock()
 	}
@@ -202,6 +209,8 @@ func main() {
 		fmt.Printf("Can't run websocket server.\n")
 		os.Exit(1)
 	}
+
+	go ioserv.Serve()
 
 	client := sxutil.GrpcConnectServer(srv)
 	sxServerAddress = srv
