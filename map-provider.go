@@ -74,10 +74,10 @@ func run_server() *socketio.Server {
 	log.Println("AssetDir:", assetsDir)
 
 	assetsDir = http.Dir(d)
-	server, serr := socketio.NewServer(nil)
-	if serr != nil {
-		log.Print("Socket IO open error:", serr)
-	}
+	server := socketio.NewServer(nil) // 
+//	if serr != nil {
+//		log.Print("Socket IO open error:", serr)
+//	}
 
 	server.OnConnect("/", func(s socketio.Conn) error {
 		resp := server.JoinRoom("/", "#", s)
@@ -110,8 +110,8 @@ func (m *MapMarker) GetJson() string {
 
 func supplyRideCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	flt := &fleet.Fleet{}
-	//	dt := sp.Cdata.Entity
-	//	fmt.Printf("Got data %d: %v",len(dt), dt)
+	dt := sp.Cdata.Entity
+	fmt.Printf("Got data %d: %v",len(dt), dt)
 	err := proto.Unmarshal(sp.Cdata.Entity, flt)
 	if err == nil {
 		mm := &MapMarker{
@@ -151,7 +151,7 @@ func supplyPTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	err := proto.Unmarshal(sp.Cdata.Entity, pt)
 
 	if err == nil { // get PT
-		//		fmt.Printf("Receive PT: %#v", *pt)
+//		fmt.Printf("Receive PT: %#v", *pt)
 
 		mm := &MapMarker{
 			mtype: pt.VehicleType, // depends on type of GTFS: 1 for Subway, 2, for Rail, 3 for bus
